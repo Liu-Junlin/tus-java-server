@@ -15,7 +15,7 @@ import java.util.*;
  * when creating the upload.
  */
 public class UploadInfo implements Serializable {
-    private static final long serialVersionUID = 7465730115428649978L;
+    private static final long serialVersionUID = 8970105977893087332L;
 
     private static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
     private static List<String> fileNameKeys = Arrays.asList("filename", "name");
