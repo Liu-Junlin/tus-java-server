@@ -1,15 +1,7 @@
 package me.desair.tus.server;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.EnumSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
 import me.desair.tus.server.checksum.ChecksumExtension;
 import me.desair.tus.server.concatenation.ConcatenationExtension;
 import me.desair.tus.server.core.CoreProtocol;
@@ -18,12 +10,7 @@ import me.desair.tus.server.download.DownloadExtension;
 import me.desair.tus.server.exception.TusException;
 import me.desair.tus.server.expiration.ExpirationExtension;
 import me.desair.tus.server.termination.TerminationExtension;
-import me.desair.tus.server.upload.UUIDUploadIdFactory;
-import me.desair.tus.server.upload.UploadIdFactory;
-import me.desair.tus.server.upload.UploadInfo;
-import me.desair.tus.server.upload.UploadLock;
-import me.desair.tus.server.upload.UploadLockingService;
-import me.desair.tus.server.upload.UploadStorageService;
+import me.desair.tus.server.upload.*;
 import me.desair.tus.server.upload.cache.ThreadLocalCachedStorageAndLockingService;
 import me.desair.tus.server.upload.disk.DiskLockingService;
 import me.desair.tus.server.upload.disk.DiskStorageService;
@@ -34,6 +21,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * Helper class that implements the server side tus v1.0.0 upload protocol
@@ -167,6 +162,7 @@ public class TusFileUploadService {
     /**
      * Enable or disable a thread-local based cache of upload data. This can reduce the load
      * on the storage backends. By default this cache is disabled.
+     *
      * @param isEnabled True if the cache should be enabled, false otherwise
      * @return The current service
      */
@@ -255,6 +251,7 @@ public class TusFileUploadService {
 
     /**
      * Get the set of enabled Tus extensions
+     *
      * @return The set of active extensions
      */
     public Set<String> getEnabledFeatures() {
@@ -266,7 +263,7 @@ public class TusFileUploadService {
      * Use this method to process any request made to the main and sub tus upload endpoints. This corresponds to
      * the path specified in the withUploadURI() method and any sub-path of that URI.
      *
-     * @param servletRequest The {@link HttpServletRequest} of the request
+     * @param servletRequest  The {@link HttpServletRequest} of the request
      * @param servletResponse The {@link HttpServletResponse} of the request
      * @throws IOException When saving bytes or information of this requests fails
      */
@@ -280,9 +277,9 @@ public class TusFileUploadService {
      * Use this method to process any request made to the main and sub tus upload endpoints. This corresponds to
      * the path specified in the withUploadURI() method and any sub-path of that URI.
      *
-     * @param servletRequest The {@link HttpServletRequest} of the request
+     * @param servletRequest  The {@link HttpServletRequest} of the request
      * @param servletResponse The {@link HttpServletResponse} of the request
-     * @param ownerKey A unique identifier of the owner (group) of this upload
+     * @param ownerKey        A unique identifier of the owner (group) of this upload
      * @throws IOException When saving bytes or information of this requests fails
      */
     public void process(HttpServletRequest servletRequest, HttpServletResponse servletResponse,
@@ -297,7 +294,7 @@ public class TusFileUploadService {
         TusServletRequest request = new TusServletRequest(servletRequest, isChunkedTransferDecodingEnabled);
         TusServletResponse response = new TusServletResponse(servletResponse);
 
-        try (UploadLock lock = uploadLockingService.lockUploadByUri(request.getRequestURI())) {
+        try (UploadLock lock = uploadLockingService.lockUploadByUri(request.getRequestURI(), false)) {
 
             processLockedRequest(method, request, response, ownerKey);
 
@@ -330,7 +327,7 @@ public class TusFileUploadService {
     public InputStream getUploadedBytes(String uploadURI, String ownerKey)
             throws IOException, TusException {
 
-        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI)) {
+        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI, false)) {
 
             return uploadStorageService.getUploadedBytes(uploadURI, ownerKey);
         }
@@ -344,8 +341,8 @@ public class TusFileUploadService {
      * @throws IOException  When retrieving the upload information fails
      * @throws TusException When the upload is still in progress or cannot be found
      */
-    public UploadInfo getUploadInfo(String uploadURI) throws IOException, TusException {
-        return getUploadInfo(uploadURI, null);
+    public UploadInfo getUploadInfo(String uploadURI, boolean share) throws IOException, TusException {
+        return getUploadInfo(uploadURI, null, share);
     }
 
     /**
@@ -357,8 +354,8 @@ public class TusFileUploadService {
      * @throws IOException  When retrieving the upload information fails
      * @throws TusException When the upload is still in progress or cannot be found
      */
-    public UploadInfo getUploadInfo(String uploadURI, String ownerKey) throws IOException, TusException {
-        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI)) {
+    public UploadInfo getUploadInfo(String uploadURI, String ownerKey, boolean share) throws IOException, TusException {
+        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI, share)) {
 
             return uploadStorageService.getUploadInfo(uploadURI, ownerKey);
         }
@@ -382,7 +379,7 @@ public class TusFileUploadService {
      * @param ownerKey  The key of the owner of this upload
      */
     public void deleteUpload(String uploadURI, String ownerKey) throws IOException, TusException {
-        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI)) {
+        try (UploadLock lock = uploadLockingService.lockUploadByUri(uploadURI, false)) {
             UploadInfo uploadInfo = uploadStorageService.getUploadInfo(uploadURI, ownerKey);
             if (uploadInfo != null) {
                 uploadStorageService.terminateUpload(uploadInfo);

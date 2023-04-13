@@ -1,12 +1,5 @@
 package me.desair.tus.server.upload.disk;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
-
 import me.desair.tus.server.exception.TusException;
 import me.desair.tus.server.exception.UploadAlreadyLockedException;
 import me.desair.tus.server.upload.UploadId;
@@ -14,6 +7,13 @@ import me.desair.tus.server.upload.UploadIdFactory;
 import me.desair.tus.server.upload.UploadLock;
 import me.desair.tus.server.upload.UploadLockingService;
 import org.apache.commons.lang3.Validate;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 
 /**
  * {@link UploadLockingService} implementation that uses the file system for implementing locking
@@ -39,7 +39,7 @@ public class DiskLockingService extends AbstractDiskBasedService implements Uplo
     }
 
     @Override
-    public UploadLock lockUploadByUri(String requestURI) throws TusException, IOException {
+    public UploadLock lockUploadByUri(String requestURI, boolean share) throws TusException, IOException {
 
         UploadId id = idFactory.readUploadId(requestURI);
 
@@ -48,7 +48,7 @@ public class DiskLockingService extends AbstractDiskBasedService implements Uplo
         Path lockPath = getLockPath(id);
         //If lockPath is not null, we know this is a valid Upload URI
         if (lockPath != null) {
-            lock = new FileBasedLock(requestURI, lockPath);
+            lock = new FileBasedLock(requestURI, lockPath, share);
         }
         return lock;
     }
@@ -78,7 +78,7 @@ public class DiskLockingService extends AbstractDiskBasedService implements Uplo
 
         if (lockPath != null) {
             //Try to obtain a lock to see if the upload is currently locked
-            try (UploadLock lock = new FileBasedLock(id.toString(), lockPath)) {
+            try (UploadLock lock = new FileBasedLock(id.toString(), lockPath, false)) {
 
                 //We got the lock, so it means no one else is locking it.
                 locked = false;

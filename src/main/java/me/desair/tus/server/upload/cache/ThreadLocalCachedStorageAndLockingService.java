@@ -1,20 +1,15 @@
 package me.desair.tus.server.upload.cache;
 
+import me.desair.tus.server.exception.TusException;
+import me.desair.tus.server.exception.UploadNotFoundException;
+import me.desair.tus.server.upload.*;
+import me.desair.tus.server.upload.concatenation.UploadConcatenationService;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.util.Objects;
-
-import me.desair.tus.server.exception.TusException;
-import me.desair.tus.server.exception.UploadNotFoundException;
-import me.desair.tus.server.upload.UploadId;
-import me.desair.tus.server.upload.UploadIdFactory;
-import me.desair.tus.server.upload.UploadInfo;
-import me.desair.tus.server.upload.UploadLock;
-import me.desair.tus.server.upload.UploadLockingService;
-import me.desair.tus.server.upload.UploadStorageService;
-import me.desair.tus.server.upload.concatenation.UploadConcatenationService;
 
 /**
  * Combined implementation of {@link UploadStorageService} and {@link UploadLockingService}.
@@ -135,7 +130,7 @@ public class ThreadLocalCachedStorageAndLockingService implements UploadLockingS
 
     @Override
     public void removeLastNumberOfBytes(UploadInfo uploadInfo, long byteCount) throws UploadNotFoundException,
-                                                                                      IOException {
+            IOException {
         storageServiceDelegate.removeLastNumberOfBytes(uploadInfo, byteCount);
         uploadInfoCache.set(new WeakReference<>(uploadInfo));
     }
@@ -169,8 +164,8 @@ public class ThreadLocalCachedStorageAndLockingService implements UploadLockingS
     }
 
     @Override
-    public UploadLock lockUploadByUri(String requestURI) throws TusException, IOException {
-        UploadLock uploadLock = lockingServiceDelegate.lockUploadByUri(requestURI);
+    public UploadLock lockUploadByUri(String requestURI, boolean share) throws TusException, IOException {
+        UploadLock uploadLock = lockingServiceDelegate.lockUploadByUri(requestURI, share);
         return new CachedLock(uploadLock);
     }
 

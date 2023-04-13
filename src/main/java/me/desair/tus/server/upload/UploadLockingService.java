@@ -15,7 +15,7 @@ public interface UploadLockingService {
      * @return The lock on the upload, or null if not lock was applied
      * @throws TusException If the upload is already locked
      */
-    UploadLock lockUploadByUri(String requestURI) throws TusException, IOException;
+    UploadLock lockUploadByUri(String requestURI,boolean share) throws TusException, IOException;
 
     /**
      * Clean up any stale locks that are still present

@@ -1,7 +1,11 @@
 package me.desair.tus.server.upload.disk;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
+import me.desair.tus.server.exception.UploadAlreadyLockedException;
+import me.desair.tus.server.upload.UploadLock;
+import me.desair.tus.server.util.Utils;
+import org.apache.commons.lang3.Validate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -10,12 +14,8 @@ import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import me.desair.tus.server.exception.UploadAlreadyLockedException;
-import me.desair.tus.server.upload.UploadLock;
-import me.desair.tus.server.util.Utils;
-import org.apache.commons.lang3.Validate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
 
 /**
  * Upload locking implementation using the file system file locking mechanism.
@@ -32,22 +32,22 @@ public class FileBasedLock implements UploadLock {
     private FileChannel fileChannel = null;
     protected Path lockPath;
 
-    public FileBasedLock(String uploadUri, Path lockPath) throws UploadAlreadyLockedException, IOException {
+    public FileBasedLock(String uploadUri, Path lockPath, boolean share) throws UploadAlreadyLockedException, IOException {
         Validate.notBlank(uploadUri, "The upload URI cannot be blank");
         Validate.notNull(lockPath, "The path to the lock cannot be null");
         this.uploadUri = uploadUri;
         this.lockPath = lockPath;
 
-        tryToObtainFileLock();
+        tryToObtainFileLock(share);
     }
 
-    private void tryToObtainFileLock() throws UploadAlreadyLockedException, IOException {
+    private void tryToObtainFileLock(boolean share) throws UploadAlreadyLockedException, IOException {
         String message = "The upload " + getUploadUri() + " is already locked";
 
         try {
             //Try to acquire a lock
             fileChannel = createFileChannel();
-            FileLock fileLock = Utils.lockFileExclusively(fileChannel);
+            FileLock fileLock = share ? Utils.lockFileShared(fileChannel) : Utils.lockFileExclusively(fileChannel);
 
             //If the upload is already locked, our lock will be null
             if (fileLock == null) {
