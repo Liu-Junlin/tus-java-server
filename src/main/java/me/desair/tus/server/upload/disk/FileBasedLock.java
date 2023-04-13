@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.channels.NonReadableChannelException;
 import java.nio.channels.OverlappingFileLockException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,13 +48,21 @@ public class FileBasedLock implements UploadLock {
         try {
             //Try to acquire a lock
             fileChannel = createFileChannel();
-            FileLock fileLock = share ? Utils.lockFileShared(fileChannel) : Utils.lockFileExclusively(fileChannel);
-
-            //If the upload is already locked, our lock will be null
-            if (fileLock == null) {
-                fileChannel.close();
-                throw new UploadAlreadyLockedException(message);
+            if (share) {
+                try {
+                    Utils.lockFileShared(fileChannel);
+                } catch (NonReadableChannelException | OverlappingFileLockException e) {
+                    fileChannel.close();
+                }
+            } else {
+                FileLock fileLock = Utils.lockFileExclusively(fileChannel);
+                if (fileLock == null) {
+                    fileChannel.close();
+                    throw new UploadAlreadyLockedException(message);
+                }
             }
+            //If the upload is already locked, our lock will be null
+
 
         } catch (OverlappingFileLockException e) {
             if (fileChannel != null) {
