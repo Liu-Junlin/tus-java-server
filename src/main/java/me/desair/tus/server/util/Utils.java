@@ -80,7 +80,7 @@ public class Utils {
         if (path != null) {
             try (FileChannel channel = FileChannel.open(path, READ)) {
                 //Lock will be released when the channel is closed
-                if (lockFileShared(channel) != null) {
+//                if (lockFileShared(channel) != null) {
 
                     try (ObjectInputStream ois = new ObjectInputStream(Channels.newInputStream(channel))) {
                         info = clazz.cast(ois.readObject());
@@ -88,9 +88,9 @@ public class Utils {
                         //This should not happen
                         info = null;
                     }
-                } else {
-                    throw new IOException("Unable to lock file " + path);
-                }
+//                } else {
+//                    throw new IOException("Unable to lock file " + path);
+//                }
             }
         }
         return info;
